@@ -1,0 +1,186 @@
+#!/bin/bash -e
+
+db=''
+internal=''
+options=''
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -[!-]?*)
+            a=$1
+            shift
+            set -- "$a" $(sed 's/./ -&/g' <<<${a#-}) "$@"
+        ;;
+        -h|--help)
+          cat <<EOF
+Create a new backend project, optionally with database. If you need
+a database, then it is better to specify it here. Sets up everything.
+
+If the project name in git differs from the project name in path, then
+specify the project git name as second paramer.
+
+SYNOPSIS
+  $0 [OPTIONS] project-name [project-git-mname]
+
+OPTIONS
+  -h, --help      show this help
+  -d, --db        include generation of a database
+  -i, --internal  no user access, don't connect to API gateway
+  --no-kafka      don't connect to kafka
+  --no-redis      don't connect to redis
+EOF
+          exit 0
+        ;;
+        -d|--db) db='-d';;
+        -i|--internal) internal='-i';;
+        --no-kafka|--no-redis) options="${options}${options:+ }$1";;
+        -*) echo "ERROR: unknown option: $1" 1>&2; exit 1;;
+        *) break
+    esac
+    shift
+done
+
+if [ -z "$1" ]; then
+  echo "#### ERROR: Please specify a project name" 1>&2
+  echo "     try: $0 --help" 1>&2
+  exit 1
+fi
+
+name=$*
+project=${name//[^a-zA-Z0-9]/-}
+root=$(realpath "${0%/*}/..")
+path="backends/$project"
+date=$(date +'%Y%m%d-%H:%M:%S')
+echo "---- $date → creating project $name as $project in $path"
+PROJECT=${project^^}
+PROJECT=${PROJECT//[^a-zA-Z0-9]/_}
+GATEWAY=GATEWAY_${PROJECT}
+cd "$root"
+infrastructures=infrastructure/*
+envs=".env sample.env"
+
+if [ -e "$path" ]; then
+  echo "**** project $project already exists"
+else
+  npx nest g app "$project"
+  ./scripts/set-env-links
+fi
+
+port=$(sed -n 's,^ *const *port *= *,,p' ${path}/src/main.ts)
+url="http://${project}:${port}/${project}"
+local="http://localhost:${port}"
+
+# handle database setup
+if [ -e "$path/mikro-orm.config.ts" ]; then
+  if [ "$db" = "-d" ]; then
+    echo "**** project $project already has a database configured"
+  fi
+  db='-d'
+else
+  if [ "$db" = "-d" ]; then
+    cd "$path"
+    npx nest g db <<<2
+    cd -
+  fi
+fi
+if [ "$db" = "-d" ]; then
+  # add prestart to package.json
+  prestart="$(jq -r .scripts.prestart package.json)"
+  if ! grep -q "${project}-db" <<<"$prestart"; then
+    echo "---- adding ${project}-db to scripts.prestart in package.json"
+    prestart="$prestart ${project}-db"
+    jq ".scripts.prestart = \"$prestart\"" package.json > package.json.tmp
+    mv package.json.tmp package.json
+  fi
+  # add secrets to envs
+  dbport=$(sed -n "s/^${PROJECT}_DB_PORT=//p" "${path}/.env.sample")
+  if [ -z "dbport" ]; then
+    dbport=5$(pwgen -sAr 'abcdefghijklmnopqrstuvwxyz' 3 1)
+  fi
+  for path in . $infrastructures; do
+    for env in $envs; do
+      file="${path}/${env}"
+      password=RANDOM_PASSWORD
+      if [ "$env" = ".env" ]; then
+        password=$(pwgen 40 1)
+      fi
+      insert="${PROJECT}_DB_NAME=${project}\n\
+${PROJECT}_DB_PASSWORD=${password}\n\
+${PROJECT}_DB_USER=${project}"
+      if [ "$path" = "." ]; then
+        insert="$insert\n\
+${PROJECT}_DB_HOST=localhost\n\
+${PROJECT}_DB_PORT=${dbport}"
+      fi
+      if ! grep -q  ${PROJECT}_DB_PASSWORD ${file}; then
+        echo "---- adding ${PROJECT}_DB_… to ${file}"
+        [ "$env" = ".env" ] && (test -e $file.${date}.bak || cp -n $file $file.${date}.bak)
+        sed -i '/^[A-Z_]*_DB_/!b;:a;n;/^[A-Z_]*_DB_/ba;i\
+'"$insert" ${file}
+      fi
+    done
+  done
+fi
+
+# configure environments
+for env in $envs; do
+  if ! grep -q '^ALL_REACT_APIS=' $env; then
+    echo "#### ERROR: Add ALL_REACT_APIS to $env" 1>&2
+    exit 1
+  fi
+  if ! grep -q "^REACT_APP_${PROJECT}_URL=" $env; then
+    echo "---- adding REACT_APP_${PROJECT}_URL=${local} to $env"
+    [ "$env" = ".env" ] && (test -e $env.${date}.bak || cp -n $env $env.${date}.bak)
+    sed -i "s|^ALL_REACT_APIS=.*|REACT_APP_${PROJECT}_URL=${local}\n&,REACT_APP_${PROJECT}_URL|" $env
+  fi
+done
+for infrastructure in . $infrastructures; do
+  for env in $envs; do
+    file="${infrastructure}/${env}"
+    if ! grep -q  ${GATEWAY}=${url} ${file}; then
+      echo "---- adding ${GATEWAY} to ${file}"
+      [ "$env" = ".env" ] && (test -e $file.${date}.bak || cp -n $file $file.${date}.bak)
+      sed -i '/^'"${GATEWAY}"'=/d' ${file}
+      sed -i '/^GATEWAY_/!b;:a;n;/^GATEWAY_/ba;i\'"${GATEWAY}=${url}" ${file}
+    fi
+  done
+done
+
+# configure global docker compose file_
+echo "---- updating ./docker-compose.yaml"
+${0%/*}/update-project-compose -g ${db} ${internal} ${options} ./docker-compose.yaml "$project" "$port"
+# configure infrastructure compose files
+for infrastructure in $infrastructures; do
+  echo "---- updating ${infrastructure}/docker-compose.yaml"
+  ${0%/*}/update-project-compose ${db} ${internal} ${options} ${infrastructure}/docker-compose.yaml "$project" "$port"
+done
+
+# update Kong template
+if [ -z "$internal" ] && ! grep -q '^  - name: '"$project"'$' ./config/template.yaml; then
+  echo "---- updating ./config/template.yaml"
+  sed -i '/^#### BACKENDS ####$/a\
+\
+  - name: '"${project}"'\
+    url: \${GATEWAY_'"${PROJECT}"'}\
+    routes:\
+      - name: '"${project}"'\
+        protocols:\
+          - \${WEB_PROTOCOL}\
+        paths:\
+          - ~\${API_PATH}'"${project}"'/\
+          - ~\${API_PATH}'"${project}"'$\
+        hosts:\
+          - \${API_HOST}\
+    plugins:\
+      - name: jwt\
+        instance_name: '"${project}"'\
+        config: *jwt\
+      - name: ip-restriction\
+        config:\
+          allow: [\${IP_WHITELIST}]\
+' ./config/template.yaml
+fi
+
+# update apis
+#./${0%/*}/update-script-apis.sh
+
+echo "**** success."

@@ -1,0 +1,970 @@
+version: '3.5'
+
+x-external-services: &external-services
+  REACT_APP_CUSTOMER_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_TRANSACTIONS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_EBICS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_EXCHANGE_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_FIREBLOCKS_PROVIDER_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_GEN_DOCS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_MAILER_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_REPORTS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_SOCKET_URL: '${SOCKET_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_TRADING_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_TRADING_EVENTS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_SPREAD_ANALYSIS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_FIREBLOCKS_EVENTS_URL: '${WEB_PROTOCOL}://${API_HOST}${API_PATH}'
+  REACT_APP_CRON_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+  REACT_APP_CONFIG_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+  REACT_APP_BRIDGING_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+  REACT_APP_ONBOARDING_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+  REACT_APP_SOCKET_GATEWAY_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+  REACT_APP_PYTH_PROVIDER_URL: ${WEB_PROTOCOL}://${API_HOST}${API_PATH}
+
+x-internal-services: &internal-services
+  REACT_APP_CUSTOMER_URL: 'http://customer:4007'
+  REACT_APP_TRANSACTIONS_URL: 'http://transactions:4053'
+  REACT_APP_EBICS_URL: 'http://ebics:4725'
+  REACT_APP_EXCHANGE_URL: 'http://exchange:4217'
+  REACT_APP_FIREBLOCKS_PROVIDER_URL: 'http://fireblocks-provider:4000'
+  REACT_APP_GEN_DOCS_URL: 'http://gen-docs:4920'
+  REACT_APP_MAILER_URL: 'http://mailer:4293'
+  REACT_APP_REPORTS_URL: 'http://report:4014'
+  REACT_APP_SOCKET_URL: 'ws://socket-gateway:4010'
+  REACT_APP_TRADING_URL: 'http://trading:4001'
+  REACT_APP_TRADING_EVENTS_URL: 'http://trading-events:4369'
+  REACT_APP_SPREAD_ANALYSIS_URL: 'http://spread-analysis:4204'
+  REACT_APP_FIREBLOCKS_EVENTS_URL: http://fireblocks-events:4752
+  REACT_APP_CRON_URL: http://cron:4961
+  REACT_APP_CONFIG_URL: http://config:4757
+  REACT_APP_BRIDGING_URL: http://bridging:4460
+  REACT_APP_ONBOARDING_URL: http://onboarding:4355
+  REACT_APP_SOCKET_GATEWAY_URL: http://socket-gateway:4010
+  REACT_APP_PYTH_PROVIDER_URL: http://pyth-provider:4977
+
+x-all-services: &all-services
+  <<: *internal-services
+  LOG_LEVELS:
+  DEBUG:
+  KAFKA: kafka:9092
+  REDIS: redis:6379
+  COOKIE_DOMAIN: api.scrypt.dev
+  TALOS_APIKEY:
+  TALOS_APIHOST:
+  TALOS_APISECRET:
+  FIREBLOCKS_API_URL:
+  FIREBLOCKS_API_KEY:
+  FIREBLOCKS_API_SECRET:
+  JWT_SECRET:
+  JWT_KID:
+  JWT_TOKEN_EXPIRATION_TIME:
+
+x-cloud-storage: &cloud-storage
+  S3_BUCKET:
+  S3_ENDPOINT:
+  S3_REGION:
+
+services:
+  fix-permission:
+    image: mwaeckerlin/very-base
+    command:
+      - '/bin/sh'
+      - '-c'
+      - 'chown -R 1000.1000 /zookeeper; chown -R $${RUN_USER}:$${RUN_GROUP} /reports-backup; sleep infinity'
+    volumes:
+      - type: volume
+        source: zookeeper
+        target: /zookeeper
+      - type: volume
+        source: reports-backup
+        target: /reports-backup
+
+  api-gateway:
+    image: kong/kong-gateway
+    user: '${KONG_USER:-kong}'
+    environment:
+      KONG_DATABASE: 'off'
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: 0.0.0.0:80, 0.0.0.0:443 ssl
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_PREFIX: ${KONG_PREFIX:-/var/run/kong}
+      KONG_DECLARATIVE_CONFIG: '/config/kong.yaml'
+      KONG_LOG_LEVEL:
+      KONG_TRUSTED_IPS: "0.0.0.0/0,::/0" # trust all IPs
+      KONG_REAL_IP_RECURSIVE: "on"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8001:8001"
+    healthcheck:
+      test: [ 'CMD', 'kong', 'health' ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    deploy:
+      restart_policy:
+        condition: on-failure
+    read_only: true
+    volumes:
+      - kong-prefix:${KONG_PREFIX:-/var/run/kong}
+      - kong-tmp:/tmp
+      - ./kong.yaml:/config/kong.yaml
+    networks:
+      - redis-kong
+      #- ingress-spread-analysis-frontend
+      - ingress-operator
+      - ingress-fireblocks-provider
+      - ingress-trading-events
+      - ingress-trading
+      - ingress-socket-gateway
+      #- ingress-openid
+      - ingress-spread-analysis
+      - ingress-customer
+      - ingress-transactions
+      - ingress-fireblocks-events
+      - ingress-cron
+      - ingress-config
+      - ingress-bridging
+      - ingress-onboarding
+      - ingress-pyth-provider
+    security_opt:
+      - no-new-privileges
+
+  #  spread-analysis-frontend:
+  #    image: ${DOCKER_REPOSITORY}/spread-analysis-frontend:develop
+  #    environment:
+  #      <<: *external-services
+  #    networks:
+  #      - ingress-spread-analysis-frontend
+  #    deploy:
+  #      restart_policy:
+  #        condition: on-failure
+
+  operator:
+    image: ${DOCKER_REPOSITORY}/operator:develop
+    environment:
+      <<: *external-services
+    networks:
+      - ingress-operator
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  socket-gateway:
+    image: ${DOCKER_REPOSITORY}/socket-gateway:develop
+    environment:
+      <<: *all-services
+      CLIENT_API_SPARKLINES_RESOLUTION:
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - kafka-socket-gateway
+      - redis-socket-gateway
+      - ingress-socket-gateway
+      - socket-gateway-trading
+      - socket-gateway-trading-events
+      - socket-gateway-transactions
+      - socket-gateway-spread-analysis
+      - socket-gateway-cron
+      - socket-gateway-config
+      - socket-gateway-bridging
+      - socket-gateway-onboarding
+      - socket-gateway-socket-gateway
+      - socket-gateway-pyth-provider
+
+  fireblocks-events:
+    image: ${DOCKER_REPOSITORY}/fireblocks-events:develop
+    environment:
+      <<: *all-services
+      FIREBLOCKS_HOOKS_PUBLIC_KEY:
+    networks:
+      - ingress-fireblocks-events
+      - kafka-fireblocks-events
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  fireblocks-provider:
+    image: ${DOCKER_REPOSITORY}/fireblocks-provider:develop
+    environment:
+      <<: *all-services
+      FIREBLOCKS_PROVIDER_DB_TYPE: postgresql
+      FIREBLOCKS_PROVIDER_DB_NAME: ${FIREBLOCKS_PROVIDER_DB_NAME}${ENVIRONMENT}
+      FIREBLOCKS_PROVIDER_DB_HOST: fireblocks-provider-db
+      FIREBLOCKS_PROVIDER_DB_USER:
+      FIREBLOCKS_PROVIDER_DB_PASSWORD:
+      FIREBLOCKS_PROVIDER_DB_PORT: 5432
+      ACCOUNT_DISPLAY_NAME: Spot Account
+      ACCOUNT_TYPE: SPOT
+      MANIPULATION:
+    networks:
+      - ingress-fireblocks-provider
+      - fireblocks-provider-db
+      - redis-fireblocks-provider
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  fireblocks-provider-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${FIREBLOCKS_PROVIDER_DB_PASSWORD}
+      POSTGRES_USER: ${FIREBLOCKS_PROVIDER_DB_USER}
+      POSTGRES_DB: ${FIREBLOCKS_PROVIDER_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: fireblocks-provider-db
+        target: /var/lib/postgresql/data
+    networks:
+      - fireblocks-provider-db
+    command: -c tcp_keepalives_interval=5 -c tcp_keepalives_idle=30 -c tcp_keepalives_count=4 -c idle_session_timeout=0
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  trading-events:
+    image: ${DOCKER_REPOSITORY}/trading-events:develop
+    environment:
+      <<: *all-services
+      TRADING_EVENTS_DB_TYPE: postgresql
+      TRADING_EVENTS_DB_NAME: ${TRADING_EVENTS_DB_NAME}${ENVIRONMENT}
+      TRADING_EVENTS_DB_HOST: trading-events-db
+      TRADING_EVENTS_DB_USER:
+      TRADING_EVENTS_DB_PASSWORD:
+      TRADING_EVENTS_DB_PORT: 5432
+      CLIENT_API_SPARKLINES_RESOLUTION:
+    networks:
+      - trading-events-db
+      - kafka-trading-events
+      - redis-trading-events
+      - ingress-trading-events
+      - socket-gateway-trading-events
+      - reports-trading-events
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  trading-events-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${TRADING_EVENTS_DB_PASSWORD}
+      POSTGRES_USER: ${TRADING_EVENTS_DB_USER}
+      POSTGRES_DB: ${TRADING_EVENTS_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: trading-events-db-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - trading-events-db
+
+  trading:
+    image: ${DOCKER_REPOSITORY}/trading:develop
+    environment:
+      <<: *all-services
+      TRADING_DB_TYPE: postgresql
+      TRADING_DB_NAME: ${TRADING_DB_NAME}${ENVIRONMENT}
+      TRADING_DB_HOST: trading-db
+      TRADING_DB_USER:
+      TRADING_DB_PASSWORD:
+      TRADING_DB_PORT: 5432
+    networks:
+      - kafka-trading
+      - redis-trading
+      - trading-db
+      - ingress-trading
+      - socket-gateway-trading
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  trading-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${TRADING_DB_PASSWORD}
+      POSTGRES_USER: ${TRADING_DB_USER}
+      POSTGRES_DB: ${TRADING_DB_NAME}${ENVIRONMENT}
+    networks:
+      - trading-db
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - trading-db:/var/lib/postgresql/data
+
+  #  spread-analysis:
+  #    image: ${DOCKER_REPOSITORY}/spread-analysis:develop
+  #    environment:
+  #      <<: *all-services
+  #      SPREAD_ANALYSIS_DB_TYPE: postgresql
+  #      SPREAD_ANALYSIS_DB_NAME: ${SPREAD_ANALYSIS_DB_NAME}${ENVIRONMENT}
+  #      SPREAD_ANALYSIS_DB_HOST: spread-analysis-db
+  #      SPREAD_ANALYSIS_DB_USER: 
+  #      SPREAD_ANALYSIS_DB_PASSWORD: 
+  #      SPREAD_ANALYSIS_DB_PORT: 5432
+  #    networks:
+  #      - kafka-spread-analysis
+  #      #- redis-spread-analysis
+  #      - spread-analysis-db
+  #      - ingress-spread-analysis
+  #      - socket-gateway-spread-analysis
+  #    deploy:
+  #      restart_policy:
+  #        condition: on-failure
+  #
+  #  spread-analysis-db:
+  #    image: postgres:16
+  #    environment:
+  #      POSTGRES_PASSWORD: ${SPREAD_ANALYSIS_DB_PASSWORD}
+  #      POSTGRES_USER: ${SPREAD_ANALYSIS_DB_USER}
+  #      POSTGRES_DB: ${SPREAD_ANALYSIS_DB_NAME}${ENVIRONMENT}
+  #    networks:
+  #      - spread-analysis-db
+  #    deploy:
+  #      restart_policy:
+  #        condition: on-failure
+  #    volumes:
+  #      - spread-analysis-db:/var/lib/postgresql/data
+
+  #  ebics:
+  #    extends:
+  #      file: backends/ebics/docker-compose.yaml
+  #      service: backend
+  #    environment:
+  #      <<: *all-services
+  #    networks:
+  #      - ingress-ebics
+  #    deploy:
+  #      restart_policy:
+  #        condition: on-failure
+  #
+  #  exchange:
+  #    extends:
+  #      file: backends/exchange/docker-compose.yaml
+  #      service: backend
+  #    environment:
+  #      <<: *all-services
+  #    networks:
+  #      - ingress-exchange
+  #    deploy:
+  #      restart_policy:
+  #        condition: on-failure
+
+  reports:
+    image: ${DOCKER_REPOSITORY}/reports:develop
+    environment:
+      <<: *all-services
+      REPORTS_CUSTODY_CRON_JOBS:
+      REPORTS_ASSETS_CRON_JOBS:
+      REPORTS_CUSTODY_HACK_ASSETS:
+      REPORTS_CUSTODY_HACK_CUSTOMER:
+      REPORTS_CUSTODY_HACK_VENUE:
+      REPORTS_CUSTODY_SYMBOLS:
+      REPORTS_CUSTODY_MARKETS:
+      REPORTS_CUSTODY_REFERENCE:
+      REPORTS_CUSTODY_USERS:
+      SYMBOL_MAPPING_FIREBLOCKS_TALOS:
+      REPORTS_SENDER_MAIL:
+      REPORTS_RECEIVER_MAILS:
+    volumes:
+      - reports-backup:/var/backup
+    networks:
+      - ingress-reports
+      - reports-mailer
+      - reports-config
+      - reports-gen-docs
+      - reports-trading-events
+      - kafka-reports
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  mailer:
+    image: ${DOCKER_REPOSITORY}/mailer:develop
+    environment:
+      <<: *all-services
+      MAIL_API_KEY:
+    networks:
+      - reports-mailer
+      - mailer-smtp
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  smtp:
+    image: mwaeckerlin/smtp-relay
+    networks:
+      - mailer-smtp
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  customer:
+    image: ${DOCKER_REPOSITORY}/customer:develop
+    environment:
+      <<: [*all-services, *cloud-storage]
+      CUSTOMER_DB_TYPE: postgresql
+      CUSTOMER_DB_NAME: ${CUSTOMER_DB_NAME}${ENVIRONMENT}
+      CUSTOMER_DB_HOST: customer-db
+      CUSTOMER_DB_USER:
+      CUSTOMER_DB_PASSWORD:
+      CUSTOMER_DB_PORT: 5432
+      CUSTOMER_DB_ENCRYPTION_KEY:
+    networks:
+      - customer-db
+      - kafka-customer
+      - ingress-customer
+      - customer-config
+      - customer-cron
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  customer-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+      POSTGRES_USER: ${CUSTOMER_DB_USER}
+      POSTGRES_DB: ${CUSTOMER_DB_NAME}${ENVIRONMENT}
+    networks:
+      - customer-db
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - customer-db:/var/lib/postgresql/data
+
+  transactions-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${TRANSACTIONS_DB_PASSWORD}
+      POSTGRES_USER: ${TRANSACTIONS_DB_USER}
+      POSTGRES_DB: ${TRANSACTIONS_DB_NAME}${ENVIRONMENT}
+    networks:
+      - transactions-db
+    volumes:
+      - transactions-db:/var/lib/postgresql/data
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  transactions:
+    image: ${DOCKER_REPOSITORY}/transactions:develop
+    environment:
+      <<: *all-services
+      TRANSACTIONS_DB_TYPE: postgresql
+      TRANSACTIONS_DB_NAME: ${TRANSACTIONS_DB_NAME}${ENVIRONMENT}
+      TRANSACTIONS_DB_HOST: transactions-db
+      TRANSACTIONS_DB_USER:
+      TRANSACTIONS_DB_PASSWORD:
+      TRANSACTIONS_DB_PORT: 5432
+    networks:
+      - transactions-db
+      - kafka-transactions
+      - ingress-transactions
+      - socket-gateway-transactions
+      - redis-transactions
+      - transactions-config
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  gen-docs:
+    image: ${DOCKER_REPOSITORY}/gen-docs:develop
+    environment:
+      <<: *all-services
+      GOTENBERG_BASE_URL: http://gotenberg:3000
+    networks:
+      - gotenberg
+      - reports-gen-docs
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  gotenberg:
+    image: gotenberg/gotenberg:7
+    networks:
+      - gotenberg
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:latest
+    networks:
+      - redis-kong
+      - redis-trading
+      #- redis-spread-analysis
+      - redis-socket-gateway
+      - redis-fireblocks-provider
+      - redis-cron
+      - redis-config
+      - redis-bridging
+      - redis-onboarding
+      - redis-trading-events
+      - redis-transactions
+      - redis-pyth-provider
+    volumes:
+      - redis:/data
+    command: redis-server --save 60 1 --loglevel warning
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka-zookeeper
+    volumes:
+      - zookeeper:/var/lib/zookeeper/data
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  kafka:
+    image: confluentinc/cp-kafka:7.2.1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA:-localhost:9092}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_MESSAGE_MAX_BYTES: 104857600
+      KAFKA_MAX_REQUEST_SIZE: 104857600
+      KAFKA_MAX_PARTITION_FETCH_BYTES: 104857600
+    networks:
+      - kafka-zookeeper
+      - kafka-trading
+      - kafka-trading-events
+      - kafka-spread-analysis
+      - kafka-socket-gateway
+      - kafka-customer
+      - kafka-reports
+      - kafka-fireblocks-events
+      - kafka-cron
+      - kafka-config
+      - kafka-bridging
+      - kafka-onboarding
+      - kafka-transactions
+      - kafka-pyth-provider
+    volumes:
+      - kafka:/var/lib/kafka/data
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  #openid:
+  #  image: bitnami/keycloak
+  #  environment:
+  #    KEYCLOAK_ADMIN_USER:
+  #    KEYCLOAK_ADMIN_PASSWORD:
+  #    KEYCLOAK_DATABASE_HOST: openid-db
+  #    KEYCLOAK_DATABASE_PASSWORD:
+  #    KC_PROXY: 'edge'
+  #    KEYCLOAK_LOG_LEVEL:
+  #  networks:
+  #    - ingress-openid
+  #    - openid-db
+  #  deploy:
+  #    restart_policy:
+  #      condition: on-failure
+  #openid-db:
+  #  image: postgres:16
+  #  environment:
+  #    POSTGRES_PASSWORD: ${KEYCLOAK_DATABASE_PASSWORD}
+  #    POSTGRES_USER: bn_keycloak
+  #    POSTGRES_DB: bitnami_keycloak
+  #  volumes:
+  #    - type: volume
+  #      source: openid-db
+  #      target: /var/lib/postgresql/data
+  #  networks:
+  #    - openid-db
+  #  deploy:
+  #    restart_policy:
+  #      condition: on-failure
+  cron:
+    image: ${DOCKER_REPOSITORY}/cron:develop
+    environment:
+      <<: *all-services
+      CRON_JOBS:
+      CRON_DB_TYPE: postgresql
+      CRON_DB_NAME: ${CRON_DB_NAME}${ENVIRONMENT}
+      CRON_DB_HOST: cron-db
+      CRON_DB_USER:
+      CRON_DB_PASSWORD:
+      CRON_DB_PORT: 5432
+    networks:
+      - cron-db
+      - ingress-cron
+      - kafka-cron
+      - socket-gateway-cron
+      - redis-cron
+      - customer-cron
+  cron-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${CRON_DB_PASSWORD}
+      POSTGRES_USER: ${CRON_DB_USER}
+      POSTGRES_DB: ${CRON_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: cron-db-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - cron-db
+  config:
+    image: ${DOCKER_REPOSITORY}/config:develop
+    environment:
+      <<: *all-services
+      CONFIG_DB_TYPE: postgresql
+      CONFIG_DB_NAME: ${CONFIG_DB_NAME}${ENVIRONMENT}
+      CONFIG_DB_HOST: config-db
+      CONFIG_DB_USER:
+      CONFIG_DB_PASSWORD:
+      CONFIG_DB_PORT: 5432
+    networks:
+      - config-db
+      - ingress-config
+      - kafka-config
+      - socket-gateway-config
+      - reports-config
+      - redis-config
+      - customer-config
+      - transactions-config
+  config-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${CONFIG_DB_PASSWORD}
+      POSTGRES_USER: ${CONFIG_DB_USER}
+      POSTGRES_DB: ${CONFIG_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: config-db-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - config-db
+  bridging:
+    image: ${DOCKER_REPOSITORY}/bridging:develop
+    environment:
+      <<: *all-services
+      BRIDGING_DB_TYPE: postgresql
+      BRIDGING_DB_NAME: ${BRIDGING_DB_NAME}${ENVIRONMENT}
+      BRIDGING_DB_HOST: bridging-db
+      BRIDGING_DB_USER:
+      BRIDGING_DB_PASSWORD:
+      BRIDGING_DB_PORT: 5432
+    networks:
+      - bridging-db
+      - ingress-bridging
+      - kafka-bridging
+      - socket-gateway-bridging
+      - redis-bridging
+  bridging-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${BRIDGING_DB_PASSWORD}
+      POSTGRES_USER: ${BRIDGING_DB_USER}
+      POSTGRES_DB: ${BRIDGING_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: bridging-db-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - bridging-db
+  onboarding:
+    image: ${DOCKER_REPOSITORY}/onboarding:develop
+    environment:
+      <<: *all-services
+      ONBOARDING_DB_TYPE: postgresql
+      ONBOARDING_DB_NAME: ${ONBOARDING_DB_NAME}${ENVIRONMENT}
+      ONBOARDING_DB_HOST: onboarding-db
+      ONBOARDING_DB_USER:
+      ONBOARDING_DB_PASSWORD:
+      ONBOARDING_DB_PORT: 5432
+    networks:
+      - onboarding-db
+      - ingress-onboarding
+      - kafka-onboarding
+      - socket-gateway-onboarding
+      - redis-onboarding
+  onboarding-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${ONBOARDING_DB_PASSWORD}
+      POSTGRES_USER: ${ONBOARDING_DB_USER}
+      POSTGRES_DB: ${ONBOARDING_DB_NAME}${ENVIRONMENT}
+    volumes:
+      - type: volume
+        source: onboarding-db-volume
+        target: /var/lib/postgresql/data
+    networks:
+      - onboarding-db
+  pyth-provider:
+    image: ${DOCKER_REPOSITORY}/pyth-provider:develop
+    environment:
+      <<: *all-services
+    networks:
+      - ingress-pyth-provider
+      - kafka-pyth-provider
+      - socket-gateway-pyth-provider
+      - redis-pyth-provider
+
+volumes:
+  kong-prefix:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  kong-tmp:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  customer-db:
+  transactions-db:
+  fireblocks-provider-db:
+  #spread-analysis-db:
+  #openid-db:
+  trading-db:
+  redis:
+  zookeeper:
+  kafka:
+  reports-backup:
+  cron-db-volume:
+  config-db-volume:
+  bridging-db-volume:
+  onboarding-db-volume:
+  trading-events-db-volume:
+networks:
+  customer-db:
+    driver_opts:
+      encrypted: 1
+  transactions-db:
+    driver_opts:
+      encrypted: 1
+  fireblocks-provider-db:
+    driver_opts:
+      encrypted: 1
+  gotenberg:
+    driver_opts:
+      encrypted: 1
+  ingress-customer:
+    driver_opts:
+      encrypted: 1
+  ingress-transactions:
+    driver_opts:
+      encrypted: 1
+  #ingress-ebics:
+  #  driver_opts:
+  #    encrypted: 1
+  #ingress-exchange:
+  #  driver_opts:
+  #    encrypted: 1
+  ingress-fireblocks-provider:
+    driver_opts:
+      encrypted: 1
+  #ingress-openid:
+  #  driver_opts:
+  #    encrypted: 1
+  ingress-operator:
+    driver_opts:
+      encrypted: 1
+  ingress-reports:
+    driver_opts:
+      encrypted: 1
+  ingress-socket-gateway:
+    driver_opts:
+      encrypted: 1
+  #ingress-spread-analysis-frontend:
+  #  driver_opts:
+  #    encrypted: 1
+  ingress-trading:
+    driver_opts:
+      encrypted: 1
+  ingress-trading-events:
+    driver_opts:
+      encrypted: 1
+  ingress-spread-analysis:
+    driver_opts:
+      encrypted: 1
+  kafka-customer:
+    driver_opts:
+      encrypted: 1
+  kafka-transactions:
+    driver_opts:
+      encrypted: 1
+  kafka-socket-gateway:
+    driver_opts:
+      encrypted: 1
+  kafka-trading:
+    driver_opts:
+      encrypted: 1
+  kafka-trading-events:
+    driver_opts:
+      encrypted: 1
+  kafka-spread-analysis:
+    driver_opts:
+      encrypted: 1
+  kafka-zookeeper:
+    driver_opts:
+      encrypted: 1
+  kafka-reports:
+    driver_opts:
+      encrypted: 1
+  #openid-db:
+  #  driver_opts:
+  #    encrypted: 1
+  redis-fireblocks-provider:
+    driver_opts:
+      encrypted: 1
+  redis-kong:
+    driver_opts:
+      encrypted: 1
+  #redis-spread-analysis:
+  #  driver_opts:
+  #    encrypted: 1
+  redis-socket-gateway:
+    driver_opts:
+      encrypted: 1
+  redis-trading:
+    driver_opts:
+      encrypted: 1
+  reports-mailer:
+    driver_opts:
+      encrypted: 1
+  reports-gen-docs:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-transactions:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-trading:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-trading-events:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-spread-analysis:
+    driver_opts:
+      encrypted: 1
+  trading-db:
+    driver_opts:
+      encrypted: 1
+  #spread-analysis-db:
+  #  driver_opts:
+  #    encrypted: 1
+  reports-trading-events:
+    driver_opts:
+      encrypted: 1
+  ingress-fireblocks-events:
+    driver_opts:
+      encrypted: 1
+  kafka-fireblocks-events:
+    driver_opts:
+      encrypted: 1
+  mailer-smtp:
+    driver_opts:
+      encrypted: 1
+  cron-db:
+    driver_opts:
+      encrypted: 1
+  ingress-cron:
+    driver_opts:
+      encrypted: 1
+  kafka-cron:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-cron:
+    driver_opts:
+      encrypted: 1
+  redis-cron:
+    driver_opts:
+      encrypted: 1
+  config-db:
+    driver_opts:
+      encrypted: 1
+  ingress-config:
+    driver_opts:
+      encrypted: 1
+  kafka-config:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-config:
+    driver_opts:
+      encrypted: 1
+  redis-config:
+    driver_opts:
+      encrypted: 1
+  bridging-db:
+    driver_opts:
+      encrypted: 1
+  ingress-bridging:
+    driver_opts:
+      encrypted: 1
+  kafka-bridging:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-bridging:
+    driver_opts:
+      encrypted: 1
+  redis-bridging:
+    driver_opts:
+      encrypted: 1
+  onboarding-db:
+    driver_opts:
+      encrypted: 1
+  ingress-onboarding:
+    driver_opts:
+      encrypted: 1
+  kafka-onboarding:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-onboarding:
+    driver_opts:
+      encrypted: 1
+  redis-onboarding:
+    driver_opts:
+      encrypted: 1
+  redis-trading-events:
+    driver_opts:
+      encrypted: 1
+  reports-config:
+    driver_opts:
+      encrypted: 1
+  redis-transactions:
+    driver_opts:
+      encrypted: 1
+  trading-events-db:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-socket-gateway:
+    driver_opts:
+      encrypted: 1
+  ingress-pyth-provider:
+    driver_opts:
+      encrypted: 1
+  kafka-pyth-provider:
+    driver_opts:
+      encrypted: 1
+  socket-gateway-pyth-provider:
+    driver_opts:
+      encrypted: 1
+  redis-pyth-provider:
+    driver_opts:
+      encrypted: 1
+  customer-config:
+    driver_opts:
+      encrypted: 1
+  transactions-config:
+    driver_opts:
+      encrypted: 1
+  customer-cron:
+    driver_opts:
+      encrypted: 1

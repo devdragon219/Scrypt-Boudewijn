@@ -1,0 +1,29 @@
+#!/bin/bash -e
+
+type=${1:-minor}
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "${BRANCH}" != "develop" ]; then
+    if !(git diff --quiet origin/develop...HEAD && git diff --quiet && git diff --staged --quiet && git submodule foreach 'git diff --quiet origin/develop...HEAD && git diff --quiet && git diff --staged --quiet'); then
+        echo "ERROR: First merge or rebase branch $BRANCH to develop" 1>&2
+        exit 1
+    fi
+    ${0%/*}/checkout develop
+fi
+
+echo "---- updating version in workspaces: $type"
+npm version --ws $type
+
+echo "---- pushing new tags to workspaces"
+git submodule foreach "git push --follow-tags"
+git commit -am "updated versions"
+git push
+
+
+echo "---- updating version in root: $type"
+npm version $type
+
+echo "---- pushing new tags to root"
+git push --follow-tags
+
+${0%/*}/merge-develop-master "$BRANCH"

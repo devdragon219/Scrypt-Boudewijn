@@ -1,0 +1,173 @@
+#!/usr/bin/env node
+/**  This script adds a new project, optionally with database.
+ *   -d, --db → add database configuration
+ *   -g --global → change the global ./docker-compose.yaml
+ *   --no-global → change a file in infrastructure (default)q
+ * 
+ *   This script is called by `new-backend`
+ */
+const fs = require('fs')
+const yaml = require('yaml')
+
+var argv = require('yargs')(process.argv.slice(2))
+  .usage('$0 [OPTIONS] <file> <project>')
+  .version('1.0.0')
+  .options({
+    'd': {
+      alias: 'db',
+      type: 'boolean',
+      description: 'include generation of a database',
+    },
+    'g': {
+      alias: 'global',
+      type: 'boolean',
+      description: 'generate global compose (not in infrastructure)',
+    },
+    'i': {
+      alias: 'internal',
+      type: 'boolean',
+      description: 'generate an internal service with no ingress from the API gateway',
+    },
+    'k': {
+      alias: 'kafka',
+      default: true,
+      type: 'boolean',
+      description: 'connect to kafka',
+    },
+    'r': {
+      alias: 'redis',
+      default: true,
+      type: 'boolean',
+      description: 'connect to redis',
+    }
+  })
+  .demandCommand(3, 'you need to specify both <file>, <project> and <port>')
+  .positional('file', {
+    describe: 'the docker-compose.yaml file to update',
+    type: 'string'
+  })
+  .positional('project', {
+    describe: 'the project name',
+    type: 'string'
+  })
+  .positional('port', {
+    describe: "the project's port number",
+    type: 'string'
+  })
+  .help('h')
+  .alias('h', 'help')
+  .argv
+const [file, project, port, ...more] = argv._
+const PROJECT = project.toUpperCase().replace(/-/, '_')
+if (more.length !== 0) {
+  console.error(`too many arguments, try '--help': ${more.join(' ')}'`)
+  process.exit(1)
+}
+
+const compose = yaml.parseDocument(fs.readFileSync(file, 'utf-8'), {merge: true})
+const networks = [
+  ...(argv.db ? [`${project}-db`] : []),
+  ...(argv.internal ? [] : [`ingress-${project}`]),
+  ...(argv.kafka ? [`kafka-${project}`, ...(argv.internal ? [] : [`socket-gateway-${project}`])] : []),
+  ...(argv.redis ? [`redis-${project}`] : [])
+]
+const all = compose.createAlias(compose.get('x-all-services'), 'all-services')
+const config = argv.global
+  ? {
+    extends: {
+      file: `backends/${project}/docker-compose.yaml`,
+      service: project
+    },
+    environment: {
+      '<<': all,
+    }
+  } : {
+    image: `\${DOCKER_REPOSITORY}/${project}:develop`,
+    environment: {
+      '<<': all,
+      [`${PROJECT}_DB_TYPE`]: 'postgresql',
+      [`${PROJECT}_DB_NAME`]: `\${${PROJECT}_DB_NAME}\${ENVIRONMENT}`,
+      [`${PROJECT}_DB_HOST`]: `${project}-db`,
+      [`${PROJECT}_DB_USER`]: null,
+      [`${PROJECT}_DB_PASSWORD`]: null,
+      [`${PROJECT}_DB_PORT`]: 5432
+    }
+  }
+
+const configDb = argv.global
+  ? {
+    extends: {
+      file: `backends/${project}/docker-compose.yaml`,
+      service: `${project}-db`
+    }
+  } : {
+    image: 'postgres:16',
+    environment: {
+      ['POSTGRES_PASSWORD']: `\${${PROJECT}_DB_PASSWORD}`,
+      ['POSTGRES_USER']: `\${${PROJECT}_DB_USER}`,
+      ['POSTGRES_DB']: `\${${PROJECT}_DB_NAME}\${ENVIRONMENT}`
+    }
+  }
+
+// Add new service to the compose document
+compose.hasIn(['services', project])
+  || compose.addIn(['services', project], {
+    ...config,
+    networks
+  })
+
+// Add db with volume if not already present
+if (argv.db) {
+  compose.hasIn(['services', `${project}-db`])
+    || compose.addIn(['services', `${project}-db`], {
+      ...configDb,
+      volumes: [{
+        type: 'volume',
+        source: `${project}-db-volume`,
+        target: '/var/lib/postgresql/data'
+      }],
+      networks: [`${project}-db`]
+    })
+  compose.hasIn(['volumes', `${project}-db-volume`])
+    || compose.addIn(['volumes', `${project}-db-volume`], null)
+}
+
+// Add networks if not already present
+networks.forEach(network => compose.hasIn(['networks', network])
+  || compose.addIn(['networks', network, 'driver_opts', 'encrypted'], 1))
+
+// Add API-Gateway ingress
+if (!argv.internal) {
+  (compose.getIn(['services', 'api-gateway', 'networks']).items.map(item => item.toString()) ?? []).includes(`ingress-${project}`)
+    || compose.addIn(['services', 'api-gateway', 'networks'], `ingress-${project}`)
+  // Add kafka
+  if (argv.kafka) {
+    (compose.getIn(['services', 'socket-gateway', 'networks']).items.map(item => item.toString()) ?? []).includes(`socket-gateway-${project}`)
+      || compose.addIn(['services', 'socket-gateway', 'networks'], `socket-gateway-${project}`)
+  }
+}
+
+// Add kafka
+if (argv.kafka) {
+  (compose.getIn(['services', 'kafka', 'networks']).items.map(item => item.toString()) ?? []).includes(`kafka-${project}`)
+    || compose.addIn(['services', 'kafka', 'networks'], `kafka-${project}`)
+}
+
+// Add redis
+if (argv.redis) {
+  (compose.getIn(['services', 'redis', 'networks']).items.map(item => item.toString()) ?? []).includes(`redis-${project}`)
+    || compose.addIn(['services', 'redis', 'networks'], `redis-${project}`)
+}
+
+// Add API variables
+compose.hasIn(['x-external-services', `REACT_APP_${PROJECT}_URL`])
+  || compose.addIn(['x-external-services', `REACT_APP_${PROJECT}_URL`], '${WEB_PROTOCOL}://${API_HOST}${API_PATH}')
+compose.hasIn(['x-internal-services', `REACT_APP_${PROJECT}_URL`])
+  || compose.addIn(['x-internal-services', `REACT_APP_${PROJECT}_URL`], `http://${project}:${port}`)
+
+
+fs.writeFileSync(file, yaml.stringify(compose, {
+  nullStr: '',
+  simpleKeys: true,
+  lineWidth: 0
+}))

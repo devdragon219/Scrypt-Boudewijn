@@ -1,0 +1,550 @@
+_format_version: "3.0"
+_transform: true
+
+consumers:
+  - username: ${JWT_KID}
+    jwt_secrets:
+      - key: ${JWT_KID}
+        algorithm: HS256
+        secret: ${JWT_SECRET}
+
+plugins:
+#################################################################################################### Plugins
+#=================================================================================================== CORS
+  - name: cors
+    config:
+      origins:
+        - ${WEB_PROTOCOL}://${SPREAD_ANALYSIS_HOST}
+        - ${WEB_PROTOCOL}://${OPERATOR_HOST}
+        - ${WEB_PROTOCOL}://${API_HOST}
+        - ${WEB_PROTOCOL}://${LOGIN_HOST}
+      credentials: true
+      methods:
+        - GET
+        - HEAD
+        - PUT
+        - DELETE
+        - PATCH
+        - POST
+        - OPTIONS
+      headers:
+        - Accept
+        - Content-Type
+
+#=================================================================================================== OpenID
+#  - name: oidc
+#    config:
+#      client_id: ${KEYCLOAK_CLIENT_ID}
+#      client_secret: ${KEYCLOAK_CLIENT_SECRET}
+#      discovery: ${WEB_PROTOCOL}://${LOGIN_HOST}/auth/realms/${KEYCLOAK_REALM}/.well-known/openid-configuration
+#      realm: ${KEYCLOAK_REALM}
+#      bearer_only: "no"
+#      realm_public_key: ${KEYCLOAK_REALM_PUBLIC_KEY}
+#      redirect_uri_path: /meine/callback/url
+#      response_type: code
+#      scope: "openid profile email"
+#      ssl_verify: "no"
+#      token_endpoint_auth_method: client_secret_post
+#      introspection_endpoint_auth_method: client_secret_basic
+
+#=================================================================================================== ACME
+${DISABLE_ACME}  - name: acme
+${DISABLE_ACME}    config:
+${DISABLE_ACME}      account_email: ${ACME_EMAIL}
+${DISABLE_ACME}      domains:
+${DISABLE_ACME}        - ${SPREAD_ANALYSIS_HOST}
+${DISABLE_ACME}        - ${OPERATOR_HOST}
+${DISABLE_ACME}        - ${API_HOST}
+${DISABLE_ACME}        - ${LOGIN_HOST}
+${DISABLE_ACME}      tos_accepted: true
+${DISABLE_ACME}      renew_threshold_days: 5
+${DISABLE_ACME}      storage: redis
+${DISABLE_ACME}      storage_config:
+${DISABLE_ACME}        redis:
+${DISABLE_ACME}          host: ${REDIS_HOST}
+${DISABLE_ACME}          port: ${REDIS_PORT}
+
+services:
+#################################################################################################### KEYCLOAK
+  - name: login
+    url: ${GATEWAY_LOGIN}
+    routes:
+      - name: login
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - /
+        hosts:
+          - ${LOGIN_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#################################################################################################### OPERATOR
+#--------------------------------------------------------------------------------------------------- Frontend
+  - name: operator
+    url: ${GATEWAY_OPERATOR}
+    routes:
+      - name: operator
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ${OPERATOR_PATH}
+        hosts:
+          - ${OPERATOR_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#--------------------------------------------------------------------------------------------------- Login
+  - name: auth.login
+    url: ${GATEWAY_AUTH}/login
+    routes:
+      - name: auth.login
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}auth/login/
+          - ~${API_PATH}auth/login$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#################################################################################################### Backends
+#--------------------------------------------------------------------------------------------------- APIs
+# .................................................................................................. Private
+  - name: auth
+    url: ${GATEWAY_AUTH}
+    routes:
+      - name: auth
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}auth/
+          - ~${API_PATH}auth$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: auth
+        config: &jwt
+          cookie_names:
+            - jwt
+          key_claim_name: iss
+          secret_is_base64: false
+          claims_to_verify:
+            - exp
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: trading-events
+    url: ${GATEWAY_TRADING_EVENTS}/trading-events
+    routes:
+      - name: trading-events
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}trading-events/
+          - ~${API_PATH}trading-events$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: trading-events
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: trading
+    url: ${GATEWAY_TRADING}/trading
+    routes:
+      - name: trading
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}trading/
+          - ~${API_PATH}trading$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: trading
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: trades
+    url: ${GATEWAY_TRADING}/trades
+    routes:
+      - name: trades
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}trades/
+          - ~${API_PATH}trades$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: trades
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: orders
+    url: ${GATEWAY_TRADING}/orders
+    routes:
+      - name: orders
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}orders/
+          - ~${API_PATH}orders$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: orders
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+  
+  - name: market
+    url: ${GATEWAY_TRADING}/market
+    routes:
+      - name: market
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}market/
+          - ~${API_PATH}market$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: market
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: market-data
+    url: ${GATEWAY_TRADING}/market-data
+    routes:
+      - name: market-data
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}market-data/
+          - ~${API_PATH}market-data$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: market-data
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: customer
+    url: ${GATEWAY_CUSTOMER}
+    routes:
+      - name: customer
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}customer/
+          - ~${API_PATH}customer$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: customer
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: transactions
+    url: ${GATEWAY_TRANSACTIONS}
+    routes:
+      - name: transactions
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}transactions/
+          - ~${API_PATH}transactions$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: transactions
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#### BACKENDS ####
+
+  - name: pyth-provider
+    url: ${GATEWAY_PYTH_PROVIDER}
+    routes:
+      - name: pyth-provider
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}pyth-provider/
+          - ~${API_PATH}pyth-provider$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: pyth-provider
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+
+  - name: socket-gateway
+    url: ${GATEWAY_SOCKET_GATEWAY}
+    routes:
+      - name: socket-gateway
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}socket-gateway/
+          - ~${API_PATH}socket-gateway$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: socket-gateway
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+
+  - name: onboarding
+    url: ${GATEWAY_ONBOARDING}
+    routes:
+      - name: onboarding
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}onboarding/
+          - ~${API_PATH}onboarding$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: onboarding
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+
+  - name: bridging
+    url: ${GATEWAY_BRIDGING}
+    routes:
+      - name: bridging
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}bridging/
+          - ~${API_PATH}bridging$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: bridging
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+
+  - name: config
+    url: ${GATEWAY_CONFIG}
+    routes:
+      - name: config
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}config/
+          - ~${API_PATH}config$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: config
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+
+  - name: cron
+    url: ${GATEWAY_CRON}
+    routes:
+      - name: cron
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}cron/
+          - ~${API_PATH}cron$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: cron
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#................................................................................................... Public
+  - name: market-quote
+    url: ${GATEWAY_TRADING}/market/quote
+    routes:
+      - name: market-quote
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}market/quote/
+          - ~${API_PATH}market/quote$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: market-fee
+    url: ${GATEWAY_TRADING}/market/fee
+    routes:
+      - name: market-fee
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}market/fee/
+          - ~${API_PATH}market/fee$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+  - name: fireblocks-events
+    url: ${GATEWAY_FIREBLOCKS_EVENTS}/fireblocks/webhooks
+    routes:
+      - name: fireblocks-events
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}fireblocks/webhooks/
+          - ~${API_PATH}fireblocks/webhooks$
+        hosts:
+          - ${API_HOST}
+
+#--------------------------------------------------------------------------------------------------- Sockets
+#................................................................................................... Private
+  - name: private-socket
+    url: ${GATEWAY_SOCKET}/private
+    routes:
+      - name: private-socket
+        protocols:
+          - ${SOCKET_PROTOCOL}
+        paths:
+          - ~${API_PATH}private/
+          - ~${API_PATH}private$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: jwt
+        instance_name: private-socket
+        config: *jwt
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#................................................................................................... Public
+  - name: public-trading-socket
+    url: ${GATEWAY_SOCKET}/public/trading
+    routes:
+      - name: public-trading-socket
+        protocols:
+          - ${SOCKET_PROTOCOL}
+        paths:
+          - ~${API_PATH}public/trading/
+          - ~${API_PATH}public/trading$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#################################################################################################### SPREAD-ANALYSIS
+#--------------------------------------------------------------------------------------------------- Frontend
+  - name: spread-analysis-frontend
+    url: ${GATEWAY_SPREAD_ANALYSIS_FRONTEND}
+    routes:
+      - name: spread-analysis-frontend
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ${SPREAD_ANALYSIS_PATH}
+        hosts:
+          - ${SPREAD_ANALYSIS_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+#--------------------------------------------------------------------------------------------------- Backend
+  - name: spread-analysis
+    url: ${GATEWAY_SPREAD_ANALYSIS}
+    routes:
+      - name: spread-analysis
+        protocols:
+          - ${WEB_PROTOCOL}
+        paths:
+          - ~${API_PATH}spread-analysis/
+          - ~${API_PATH}spread-analysis$
+        hosts:
+          - ${API_HOST}
+    plugins:
+      - name: ip-restriction
+        config:
+          allow: [${IP_WHITELIST}]
+
+############################################################################################################### ACME
+  # unrestricted public access for ACME challenge
+  - name: acme-dummy
+    url: http://127.0.0.1:65535
+    routes:
+      - name: acme-dummy
+        protocols:
+          - http
+        paths:
+          - /.well-known/acme-challenge
+        hosts:
+          - ${OPERATOR_HOST}
+          - ${SPREAD_ANALYSIS_HOST}
+          - ${API_HOST}
+          - ${LOGIN_HOST}

@@ -1,0 +1,17 @@
+{
+  "name": "${NAME}",
+  "version": "0.0.1",
+  "browser": "dist/bundle.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rollup -c",
+    "start": "rollup -c --watch",
+    "clean": "rimraf dist",
+    "clean:all": "rimraf node_modules",
+    "preclean:all": "npm run clean"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "libs": ""
+  }
+}

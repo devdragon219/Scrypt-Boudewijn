@@ -1,0 +1,18 @@
+#!/bin/bash -e
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "${BRANCH}" = "develop" ]; then
+    echo "you're on branch develop" 1>&2
+fi
+if [ "${BRANCH}" = "master" ]; then
+    echo "you're on branch master" 1>&2
+fi
+if [ -z "${BRANCH}" -o "${BRANCH}" = "develop" -o "${BRANCH}" = "master" ]; then
+    echo "please checkout the branch to rebase to develop" 1>&2
+    exit 1
+fi
+
+echo "rebasing branch ${BRANCH} to branch develop"
+
+git submodule foreach "git checkout develop && git pull && git checkout ${BRANCH} && git rebase develop && git push -f"
+git checkout develop && git pull && git checkout ${BRANCH} && git rebase develop && git push -f

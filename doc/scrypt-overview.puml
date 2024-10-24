@@ -1,0 +1,110 @@
+@startuml  scrypt-overview
+
+package scrypt {
+  package frontends {
+    [operator]
+    [spread-analysis]
+  }
+
+  package backends {
+    component [socket-gateway] {
+      port public
+      port private
+      [trading] as [socket-gateway-trading]
+      public - [socket-gateway-trading]
+      private - [socket-gateway-trading]
+    }
+    component [trading] {
+      [conversion]
+      [market]
+      [orders]
+      [symbols]
+      [talos-trading]
+      [trades]
+      database "trading-db"
+    }
+    component [fireblocks-provider] as fp {
+      [auth]
+      [fireblocks] as [fireblocks-provider-fireblocks]
+      [fireblocks-provider]
+      [user] as [fireblocks-provider-user]
+      [withdraw]
+      database "fireblocks-provider-db"
+    }
+    [reports]
+    [gen-docs]
+    [mailer]
+    component custody <<unfinished>> {
+      [accounts]
+      database "custody-db"
+    }
+    component [customer] as cum <<unfinished>> {
+      [customer]
+      [product]
+      [user]
+      database "customer-db"
+    }
+    [ebics] <<unfinished>>
+    [exchange] <<unfinished>>
+    queue kafka
+    database redis
+  }
+
+  [gotenberg] <<external>>
+  [api-gateway] <<external>><<kong>>
+}
+
+package external {
+  [talos]
+  [fireblocks]
+  [sendmail]
+}
+
+frontends -[hidden]down-> backends
+scrypt -[hidden]down-> external
+scrypt -[hidden]down-> gotenberg
+
+:operator-user: --> [api-gateway]
+[operator] --> [api-gateway]
+
+[api-gateway] --> [public]
+[api-gateway] --> [private]
+
+[api-gateway] --> [operator]
+[api-gateway] --> [spread-analysis]
+
+[api-gateway] --> [auth]: login
+[api-gateway] --> [fireblocks-provider]
+[api-gateway] --> [withdraw]
+[api-gateway] --> [fireblocks-provider-user]
+[api-gateway] --> [orders]
+[api-gateway] --> [trades]
+[api-gateway] --> [market]
+
+[api-gateway] --> redis : ssl-certs
+
+[socket-gateway-trading] -down-> kafka
+[conversion] -up-> kafka
+[market] -up-> kafka
+'socket-gateway --> redis
+trading --> redis
+
+[conversion] --> [symbols]
+
+[orders] --> [talos-trading]
+[trades] --> [talos-trading]
+[talos-trading] --> [talos]
+
+[conversion] --> [talos]
+[symbols] --> [talos]
+
+[reports] --> [gen-docs]
+[reports] --> [mailer]
+[gen-docs] --> [gotenberg]
+[mailer] --> [sendmail]
+[reports] --> [talos]
+[reports] --> [fireblocks]
+
+[fireblocks-provider-fireblocks] --> [fireblocks]
+
+@enduml

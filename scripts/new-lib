@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+export NAME=$1
+export FILE=${NAME##*/}
+
+if [ -z "$NAME" ]; then
+    echo "ERROR: Call with library name" 1>&2
+    exit 1
+fi
+
+cp -a auxiliary/lib-template libs/${FILE}
+#rm -rf libs/${FILE}/.git
+for file in package.json rollup.config.mjs README.md; do
+    envsubst < auxiliary/lib-template/$file > libs/${FILE}/$file
+done

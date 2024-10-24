@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "declaration": true,
+    "declarationMap": false,
+    "module": "commonjs",
+    "resolveJsonModule": true,
+    "sourceMap": false,
+    "lib": [
+      "ES2020"
+    ]
+  },
+}

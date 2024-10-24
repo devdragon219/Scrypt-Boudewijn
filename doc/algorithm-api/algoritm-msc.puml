@@ -1,0 +1,108 @@
+@startuml algorithm-msc
+
+box "Responsibility Trading" #LightGreen
+participant User [
+  =Internal User
+  ----
+  ""trader""
+]
+participant Algorithm [
+  =Algorithm
+  ----
+  ""maintained by trader""
+]
+end box
+
+box "Responsibility Tech" #LightBlue
+control "Docker/EKS" as Docker
+control "CI/CD"
+queue Kafka
+participant SPIT [
+  =SPIT
+  ----
+  ""technology framework""
+]
+end box
+
+box "3rd Party" #Salmon
+participant Market [
+  =Market
+  ----
+  ""Talos or Foxbit""
+]
+end box
+
+== Infrastructure  ==
+
+"CI/CD" -> Algorithm : build
+"CI/CD" -> Docker : deploy and run
+"Docker" -> Algorithm: GET /health
+
+== Emergency Monitoring ==
+
+Algorithm -> SPIT : register emergency command
+...
+Algorithm -> SPIT : alive
+|||
+Algorithm -> Algorithm : dies
+SPIT -> SPIT : no alive for X
+SPIT -> Market : execute emergency command
+
+== Algorithm sends Command ==
+
+Algorithm -> Kafka : command
+note left 
+Commands are:
+* place order
+* cancel order
+* cancel all orders
+* amend order
+end note
+Kafka -> SPIT : command
+SPIT -> Market : command
+
+|||
+
+== Algorithm queries Data ==
+
+Algorithm -> SPIT : REST database query
+note left
+Same information as in events
+To be queried on Algorithm's startup
+end note
+Algorithm <<- SPIT : reply 
+
+== Algorithm gets Event from Market ==
+
+Market -> SPIT : event
+note right
+Events are:
+* TBD
+end note
+SPIT -> Kafka : event
+Kafka -> Algorithm : event
+
+|||
+
+== Algorithm sends Status to SPIT ==
+
+Algorithm -> Kafka : status
+note left
+Statuses are:
+* TBD
+end note
+Kafka -> SPIT : status
+
+|||
+
+== User checks Status on Operator Frontend ==
+
+User -> SPIT : frontend
+note right
+Frontend shows:
+* Statuses
+* Order History
+* TBD
+end note
+
+@enduml

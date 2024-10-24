@@ -1,0 +1,75 @@
+version: "3.5"
+
+x-internal-services: &internal-services
+  REACT_APP_GEN_DOCS_URL: "http://gen-docs:4920"
+  REACT_APP_MAILER_URL: "http://mailer:4293"
+  REACT_APP_REPORTS_URL: "http://report:4014"
+  REACT_APP_TRADING_URL: "http://trading:4001"
+  REACT_APP_CUSTOMER_URL: "http://customer:4007"
+  REACT_APP_CUSTODY_URL: "http://custody:4000"
+  REACT_APP_FIREBLOCKS_PROVIDER_URL: "http://fireblocks-provider:4000"
+  LOG_LEVELS:
+
+x-all-services: &all-services
+  <<: *internal-services
+  TALOS_APIKEY:
+  TALOS_APIHOST:
+  TALOS_APISECRET:
+  FIREBLOCKS_API_URL:
+  FIREBLOCKS_API_KEY:
+  FIREBLOCKS_API_SECRET:
+
+services:
+  reports:
+    image: ${DOCKER_REPOSITORY}/reports
+    deploy:
+      restart_policy:
+        condition: on-failure
+    environment:
+      <<: *all-services
+      REPORTS_CUSTODY_SYMBOLS:
+      REPORTS_CUSTODY_MARKETS:
+      REPORTS_CUSTODY_USERS:
+      SYMBOL_MAPPING_FIREBLOCKS_TALOS:
+      REPORTS_SENDER_MAIL:
+      REPORTS_RECEIVER_MAILS:
+      REPORTS_CUSTODY_CRON:
+      REPORTS_CUSTODY_CRON_JOBS:
+    networks:
+      - reporting
+
+  mailer:
+    image: ${DOCKER_REPOSITORY}/mailer
+    deploy:
+      restart_policy:
+        condition: on-failure
+    environment:
+      <<: *all-services
+      MAIL_API_KEY:
+    networks:
+      - reporting
+
+  gen-docs:
+    image: ${DOCKER_REPOSITORY}/gen-docs
+    deploy:
+      restart_policy:
+        condition: on-failure
+    environment:
+      <<: *all-services
+      GOTENBERG_BASE_URL: http://gotenberg:3000
+    networks:
+      - gotenberg
+      - reporting
+
+  gotenberg:
+    image: gotenberg/gotenberg:7
+    networks:
+      - gotenberg
+
+networks:
+  gotenberg:
+    driver_opts:
+      encrypted: 1
+  reporting:
+    driver_opts:
+      encrypted: 1

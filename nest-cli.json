@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "language": "ts",
+  "collection": "@scrypt-swiss/nest-templates",
+  "monorepo": true,
+  "compilerOptions": {
+    "plugins": [
+      "@nestjs/swagger"
+    ]
+  },
+  "projects": {
+    "fireblocks-provider": {
+      "type": "application",
+      "root": "backends/fireblocks-provider",
+      "entryFile": "main",
+      "sourceRoot": "backends/fireblocks-provider/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/fireblocks-provider/tsconfig.json"
+      }
+    },
+    "trading": {
+      "type": "application",
+      "root": "backends/trading",
+      "entryFile": "main",
+      "sourceRoot": "backends/trading/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/trading/tsconfig.json"
+      }
+    },
+    "reports": {
+      "type": "application",
+      "root": "backends/reports",
+      "entryFile": "main",
+      "sourceRoot": "backends/reports/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/reports/tsconfig.json"
+      }
+    },
+    "socket-gateway": {
+      "type": "application",
+      "root": "backends/socket-gateway",
+      "entryFile": "main",
+      "sourceRoot": "backends/socket-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/socket-gateway/tsconfig.json"
+      }
+    },
+    "exchange": {
+      "type": "application",
+      "root": "backends/exchange",
+      "entryFile": "main",
+      "sourceRoot": "backends/exchange/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/exchange/tsconfig.json"
+      }
+    },
+    "ebics": {
+      "type": "application",
+      "root": "backends/ebics",
+      "entryFile": "main",
+      "sourceRoot": "backends/ebics/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/ebics/tsconfig.json"
+      }
+    },
+    "mailer": {
+      "type": "application",
+      "root": "backends/mailer",
+      "entryFile": "main",
+      "sourceRoot": "backends/mailer/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/mailer/tsconfig.json"
+      }
+    },
+    "gen-docs": {
+      "type": "application",
+      "root": "backends/gen-docs",
+      "entryFile": "main",
+      "sourceRoot": "backends/gen-docs/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/gen-docs/tsconfig.json"
+      }
+    },
+    "customer": {
+      "type": "application",
+      "root": "backends/customer",
+      "entryFile": "main",
+      "sourceRoot": "backends/customer/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/customer/tsconfig.json"
+      }
+    },
+    "spread-analysis": {
+      "type": "application",
+      "root": "backends/spread-analysis",
+      "entryFile": "main",
+      "sourceRoot": "backends/spread-analysis/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/spread-analysis/tsconfig.json"
+      }
+    },
+    "transactions": {
+      "type": "application",
+      "root": "backends/transactions",
+      "entryFile": "main",
+      "sourceRoot": "backends/transactions/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/transactions/tsconfig.json"
+      }
+    },
+    "fireblocks-events": {
+      "type": "application",
+      "root": "backends/fireblocks-events",
+      "entryFile": "main",
+      "sourceRoot": "backends/fireblocks-events/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/fireblocks-events/tsconfig.json"
+      }
+    },
+    "trading-events": {
+      "type": "application",
+      "root": "backends/trading-events",
+      "entryFile": "main",
+      "sourceRoot": "backends/trading-events/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/trading-events/tsconfig.json"
+      }
+    },
+    "kafka-test": {
+      "type": "application",
+      "root": "auxiliary/kafka-test",
+      "entryFile": "main",
+      "sourceRoot": "auxiliary/kafka-test/src",
+      "compilerOptions": {
+        "tsConfigPath": "axiliary/kafka-test/tsconfig.json"
+      }
+    },
+    "cron": {
+      "type": "application",
+      "root": "backends/cron",
+      "entryFile": "main",
+      "sourceRoot": "backends/cron/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/cron/tsconfig.json"
+      }
+    },
+    "config": {
+      "type": "application",
+      "root": "backends/config",
+      "entryFile": "main",
+      "sourceRoot": "backends/config/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/config/tsconfig.json"
+      }
+    },
+    "bridging": {
+      "type": "application",
+      "root": "backends/bridging",
+      "entryFile": "main",
+      "sourceRoot": "backends/bridging/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/bridging/tsconfig.json"
+      }
+    },
+    "onboarding": {
+      "type": "application",
+      "root": "backends/onboarding",
+      "entryFile": "main",
+      "sourceRoot": "backends/onboarding/src",
+      "compilerOptions": {
+        "tsConfigPath": "backends/onboarding/tsconfig.json"
+      }
+    }
+  }
+}

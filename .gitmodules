@@ -1,0 +1,147 @@
+[submodule "libs/talos"]
+	path = libs/talos
+	url = git@github.com:Scrypt-Swiss/lib-talos.git
+[submodule "libs/websocket-client"]
+	path = libs/websocket-client
+	url = git@github.com:Scrypt-Swiss/websocket-client.git
+[submodule "apps/talos-test"]
+	path = auxiliary/talos-test
+	url = git@github.com:Scrypt-Swiss/talos-test.git
+[submodule "apps/fireblocks-provider"]
+	path = packages/fireblocks-provider
+	url = git@github.com:Scrypt-Swiss/fireblocks-provider.git
+[submodule "libs/components"]
+	path = libs/components
+	url = git@github.com:Scrypt-Swiss/components.git
+[submodule "libs/style"]
+	path = libs/style
+	url = git@github.com:Scrypt-Swiss/style.git
+[submodule "packages/fireblocks-provider"]
+	path = backends/fireblocks-provider
+	url = git@github.com:Scrypt-Swiss/fireblocks-provider.git
+[submodule "packages/nest-templates"]
+	path = auxiliary/nest-templates
+	url = git@github.com:Scrypt-Swiss/nest-templates.git
+[submodule "libs/openapi-client"]
+	path = libs/openapi-client
+	url = git@github.com:Scrypt-Swiss/openapi-client.git
+[submodule "frontends/operator"]
+	path = frontends/operator
+	url = git@github.com:Scrypt-Swiss/operator.git
+[submodule "auxiliary/pico-httpd"]
+	path = auxiliary/pico-httpd
+	url = git@github.com:Scrypt-Swiss/pico-httpd.git
+[submodule "libs/fireblocks"]
+	path = libs/fireblocks
+	url = git@github.com:Scrypt-Swiss/lib-fireblocks.git
+[submodule "auxiliary/fireblocks-test"]
+	path = auxiliary/fireblocks-test
+	url = git@github.com:Scrypt-Swiss/fireblocks-test.git
+[submodule "backends/trading"]
+	path = backends/trading
+	url = git@github.com:Scrypt-Swiss/trading.git
+[submodule "auxiliary/kafka-test"]
+	path = auxiliary/kafka-test
+	url = git@github.com:Scrypt-Swiss/kafka-test.git
+[submodule "libs/api"]
+	path = libs/api
+	url = git@github.com:Scrypt-Swiss/api.git
+[submodule "auxiliary/reports"]
+	path = backends/reports
+	url = git@github.com:Scrypt-Swiss/reports.git
+[submodule "auxiliary/cra-template-scrypt"]
+	path = auxiliary/cra-template-scrypt
+	url = git@github.com:Scrypt-Swiss/cra-template-scrypt.git
+[submodule "backends/exchange"]
+	path = backends/exchange
+	url = git@github.com:Scrypt-Swiss/exchange.git
+[submodule "backends/socket-gateway"]
+	path = backends/socket-gateway
+	url = git@github.com:Scrypt-Swiss/socket-gateway.git
+[submodule "auxiliary/grpc-test"]
+	path = auxiliary/grpc-test
+	url = git@github.com:Scrypt-Swiss/grpc-test.git
+[submodule "backends/ebics"]
+	path = backends/ebics
+	url = git@github.com:Scrypt-Swiss/ebics.git
+[submodule "libs/b2c2"]
+	path = libs/b2c2
+	url = git@github.com:Scrypt-Swiss/lib-b2c2.git
+[submodule "libs/fiatrepublic"]
+	path = libs/fiatrepublic
+	url = git@github.com:Scrypt-Swiss/lib-fiatrepublic.git
+[submodule "backends/gen-docs"]
+	path = backends/gen-docs
+	url = git@github.com:Scrypt-Swiss/gen-docs.git
+[submodule "backends/mailer"]
+	path = backends/mailer
+	url = git@github.com:Scrypt-Swiss/mailer.git
+[submodule "libs/scrypt"]
+	path = libs/scrypt
+	url = git@github.com:Scrypt-Swiss/lib-scrypt.git
+[submodule "backends/customer"]
+	path = backends/customer
+	url = git@github.com:Scrypt-Swiss/customer.git
+[submodule "libs/bnc"]
+	path = libs/bnc
+	url = git@github.com:Scrypt-Swiss/bnc.git
+[submodule "libs/nest"]
+	path = libs/nest
+	url = git@github.com:Scrypt-Swiss/libnest.git
+[submodule "libs/binance"]
+	path = libs/binance
+	url = git@github.com:Scrypt-Swiss/binance.git
+[submodule "libs/koinbx"]
+	path = libs/koinbx
+	url = git@github.com:Scrypt-Swiss/koinbx.git
+[submodule "backends/spread-analysis"]
+	path = backends/spread-analysis
+	url = git@github.com:Scrypt-Swiss/spread-analysis-be.git
+[submodule "auxiliary/braza-test"]
+	path = auxiliary/braza-test
+	url = git@github.com:Scrypt-Swiss/braza-test.git
+[submodule "libs/braza"]
+	path = libs/braza
+	url = git@github.com:Scrypt-Swiss/lib-braza.git
+[submodule "libs/foxbit"]
+	path = libs/foxbit
+	url = git@github.com:Scrypt-Swiss/lib-foxbit.git
+[submodule "backends/transactions"]
+	path = backends/transactions
+	url = git@github.com:Scrypt-Swiss/transactions.git
+[submodule "auxiliary/foxbit-test"]
+	path = auxiliary/foxbit-test
+	url = git@github.com:Scrypt-Swiss/foxbit-test.git
+[submodule "backends/transactions"]
+	path = backends/transactions
+	url = git@github.com:Scrypt-Swiss/transactions.git
+[submodule "backends/fireblocks-events"]
+	path = backends/fireblocks-events
+	url = git@github.com:Scrypt-Swiss/fireblocks-events.git
+[submodule "backends/pyth-provider"]
+	path = backends/pyth-provider
+	url = git@github.com:Scrypt-Swiss/pyth-provider.git
+[submodule "backends/trading-events"]
+	path = backends/trading-events
+	url = git@github.com:Scrypt-Swiss/trading-events.git
+[submodule "backends/cron"]
+	path = backends/cron
+	url = git@github.com:Scrypt-Swiss/cron.git
+[submodule "backends/config"]
+	path = backends/config
+	url = git@github.com:Scrypt-Swiss/config.git
+[submodule "frontends/customer"]
+	path = frontends/customer
+	url = git@github.com:Scrypt-Swiss/customer-fe.git
+[submodule "backends/bridging"]
+	path = backends/bridging
+	url = git@github.com:Scrypt-Swiss/bridging.git
+[submodule "frontends/onboarding"]
+	path = frontends/onboarding
+	url = git@github.com:Scrypt-Swiss/onboarding.git
+[submodule "libs/client-api"]
+	path = libs/client-api
+	url = git@github.com:Scrypt-Swiss/customer-api.git
+[submodule "backends/onboarding"]
+	path = backends/onboarding
+	url = git@github.com:Scrypt-Swiss/onboarding-be.git

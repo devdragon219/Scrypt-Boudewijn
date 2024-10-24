@@ -1,0 +1,97 @@
+@startuml deployment
+component "fix-permission" as fix_permission
+component "api-gateway" as api_gateway
+:user: --> api_gateway
+component "operator" as operator
+component "socket-gateway" as socket_gateway
+component "fireblocks-events" as fireblocks_events
+component "fireblocks-provider" as fireblocks_provider
+database "fireblocks-provider-db" as fireblocks_provider_db
+component "trading-events" as trading_events
+database "trading-events-db" as trading_events_db
+component "trading" as trading
+database "trading-db" as trading_db
+component "reports" as reports
+component "mailer" as mailer
+component "smtp" as smtp
+component "customer" as customer
+database "customer-db" as customer_db
+database "transactions-db" as transactions_db
+component "transactions" as transactions
+component "gen-docs" as gen_docs
+component "gotenberg" as gotenberg
+database "redis" as redis
+component "zookeeper" as zookeeper
+queue "kafka" as kafka
+component "cron" as cron
+database "cron-db" as cron_db
+component "config" as config
+database "config-db" as config_db
+component "bridging" as bridging
+database "bridging-db" as bridging_db
+component "onboarding" as onboarding
+database "onboarding-db" as onboarding_db
+component "pyth-provider" as pyth_provider
+api_gateway --> redis
+api_gateway --> operator
+api_gateway --> fireblocks_provider
+api_gateway --> trading_events
+api_gateway --> trading
+api_gateway --> socket_gateway
+api_gateway --> customer
+api_gateway --> transactions
+api_gateway --> fireblocks_events
+api_gateway --> cron
+api_gateway --> config
+api_gateway --> bridging
+api_gateway --> onboarding
+api_gateway --> pyth_provider
+socket_gateway --> kafka
+socket_gateway --> redis
+socket_gateway --> trading
+socket_gateway --> trading_events
+socket_gateway --> transactions
+socket_gateway --> cron
+socket_gateway --> config
+socket_gateway --> bridging
+socket_gateway --> onboarding
+socket_gateway --> pyth_provider
+fireblocks_events --> kafka
+fireblocks_provider --> fireblocks_provider_db
+fireblocks_provider --> redis
+trading_events --> trading_events_db
+trading_events --> kafka
+trading_events --> redis
+trading_events --> reports
+trading --> kafka
+trading --> redis
+trading --> trading_db
+reports --> mailer
+reports --> config
+reports --> gen_docs
+reports --> kafka
+mailer --> smtp
+customer --> customer_db
+customer --> kafka
+customer --> config
+transactions_db --> transactions
+transactions --> kafka
+transactions --> redis
+transactions --> config
+gen_docs --> gotenberg
+redis --> cron
+redis --> config
+redis --> bridging
+redis --> onboarding
+redis --> pyth_provider
+zookeeper --> kafka
+kafka --> cron
+kafka --> config
+kafka --> bridging
+kafka --> onboarding
+kafka --> pyth_provider
+cron --> cron_db
+config --> config_db
+bridging --> bridging_db
+onboarding --> onboarding_db
+@enduml

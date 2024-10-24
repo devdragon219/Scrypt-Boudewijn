@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+npm run build
+
+aws ecr --profile scrypt get-login-password --region eu-central-2 \
+| docker login --username AWS --password-stdin ${DOCKER_REPOSITORY}
+
+DOCKER_TAG=develop npm run docker:build
+DOCKER_TAG=develop npm run docker:push
+
+scp ~/.docker/config.json operator.scrypt.swiss:.docker/
+scp infrastructure/prod/{kong.yaml,docker-compose.yaml,.env} operator.scrypt.swiss:infrastructure/
+
+ssh operator.scrypt.swiss 'cd infrastructure && docker-compose pull && docker-compose up --remove-orphans -d'
+ssh operator.scrypt.swiss 'cd infrastructure && docker-compose logs -tf --tail 0'

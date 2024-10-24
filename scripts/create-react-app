@@ -1,0 +1,33 @@
+#!/bin/bash -e
+
+# Creates a new React App from auxiliary/cra-template-scrypt.
+# In addition to the basic create-react-app, it substitutes the following variables:
+# - __PROJECT_NAME__: name of the project, taken from the last part of the path
+# - __PROJECT_NAME_CAMEL_CASE__: name of the project, in CamelCase (from "-" and "_")
+# This script also updates package dependencies using "fix-package-dependencies.js"
+
+if [ -z "$1" -o "$1" = "-h" -o "$1" = "--help" ]; then
+    echo "#### ERROR: Run as: $0 frontend-path-name <frontend-project-name>" 1>&2
+    echo "            Example: $0 customer customer-fe" 1>&2
+    exit 1
+fi
+
+PROJECT=${1// /-}
+PROJECT_NAME=${2:-${PROJECT}}
+PROJECT_CAMEL_CASE=$(sed -E 's/(^|[-_ ])([a-z])/ \U\2/g;s/^ //' <<<"$PROJECT")
+RANDOM_PORT=3$(pwgen -sAr 'abcdefghijklmnopqrstuvwxyz' 3 1)
+echo "**** Creating $PROJECT_CAMEL_CASE in frontends/$PROJECT"
+cd frontends
+npx create-react-app --use-npm --template file:../auxiliary/cra-template-scrypt $PROJECT_NAME
+if [ "$PROJECT" != "$PROJECT_NAME" ]; then
+    mv "$PROJECT_NAME"  "$PROJECT"
+fi
+echo "**** Replace project name in $PROJECT_CAMEL_CASE in frontends/$PROJECT"
+grep -rl __PROJECT_NAME__ "$PROJECT" | xargs -i{} sed -i 's,__PROJECT_NAME__,'"$PROJECT"',g' {}
+grep -rl __PROJECT_NAME_CAMEL_CASE__ "$PROJECT" | xargs -i{} sed -i 's,__PROJECT_NAME_CAMEL_CASE__,'"$PROJECT_CAMEL_CASE"',g' {}
+grep -rl __RANDOM_PORT__ "$PROJECT" | xargs -i{} sed -i 's,__RANDOM_PORT__,'"$RANDOM_PORT"',g' {}
+echo "**** Fix Dependencies in $PROJECT_CAMEL_CASE in frontends/$PROJECT"
+node ../${0%/*}/fix-package-dependencies.js "$PROJECT"
+echo "**** Running $PROJECT_CAMEL_CASE in frontends/$PROJECT"
+npm i
+npx nx build "$PROJECT_NAME"

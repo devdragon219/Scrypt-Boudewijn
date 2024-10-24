@@ -1,0 +1,71 @@
+name: build and push docker image
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which service need to build"
+        required: false
+
+jobs:
+  build:
+    name: ci/cd
+    runs-on: self-hosted
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          submodules: "true"
+          token: ${{ secrets.ACTIONS_TOKEN }}
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.SCRYPT_TRADING_ADMIN_ROLE }}
+          role-duration-seconds: 1200
+          role-session-name: GithubBuildAndPushImageToECR
+          role-skip-session-tagging: true
+          aws-region: eu-central-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: "true"
+
+      - name: Pull previous version
+        env:
+          DOCKER_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}
+          DOCKER_TAG: ${{ steps.extract_branch.outputs.branch }}
+        run: |
+          docker compose pull || true
+
+      - name: Build base image
+        env:
+          DOCKER_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}
+          DOCKER_TAG: ${{ steps.extract_branch.outputs.branch }}
+        run: |
+          docker compose build --parallel base pico-httpd
+
+      - name: Build app's images
+        env:
+          DOCKER_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}
+          DOCKER_TAG: ${{ steps.extract_branch.outputs.branch }}
+          ALL_REACT_APIS: REACT_APP_CUSTOMER_URL,REACT_APP_EBICS_URL,REACT_APP_EXCHANGE_URL,REACT_APP_FIREBLOCKS_PROVIDER_URL,REACT_APP_GEN_DOCS_URL,REACT_APP_MAILER_URL,REACT_APP_REPORTS_URL,REACT_APP_SOCKET_URL,REACT_APP_TRADING_URL,REACT_APP_SPREAD_ANALYSIS_URL,REACT_APP_TRANSACTIONS_URL,REACT_APP_FIREBLOCKS_EVENTS_URL
+        run: |
+          docker compose --parallel 4 build ${{ github.event.inputs.service }}
+
+      - name: Push images to Amazon ECR
+        env:
+          DOCKER_REPOSITORY: ${{ steps.login-ecr.outputs.registry }}
+          DOCKER_TAG: ${{ steps.extract_branch.outputs.branch }}
+        run: |
+          docker compose push ${{ github.event.inputs.service }}

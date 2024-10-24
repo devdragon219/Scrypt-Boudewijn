@@ -1,0 +1,66 @@
+#!/bin/bash -e
+
+input=config/template.yaml
+output=config/kong.yaml
+env=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -[!-]?*)
+            a=$1
+            shift
+            set -- "$a" $(sed 's/./ -&/g' <<<${a#-}) "$@"
+        ;;
+        -h|--help)
+          cat <<EOF
+Fill variables in a template file and save to an output file.
+Use a .env file for the variables.
+
+SYNOPSIS
+  $0 [OPTIONS]
+
+OPTIONS
+  -e, --env    <file>    specifiy .env file to use ($env)
+  -i, --input  <file>    specify input template file ($input)
+  -o, --output <file>    specify output file ($output)
+EOF
+          exit 0
+        ;;
+        -e|--env)
+            shift
+            env+=("$1")
+        ;;
+        -i|--input)
+            shift
+            input="$1"
+        ;;
+        -o|--output)
+            shift
+            output="$1"
+        ;;
+        *)
+            echo "error: unknown argument: $1" 1>&2
+            exit -1
+        ;;
+    esac
+    shift
+done
+if (test ${#env[@]} -eq 0); then
+  env=( $((test -e .env && echo .env) || (test -1 ../.env && echo  ../.env) || (test -1 ../../.env && echo  ../../.env)) )
+fi
+
+if test -n "$env" -a ! -e "$env"; then
+  echo "error: environment file $env does not exist, ignoring build" 1>&2
+  exit 0
+fi
+if ! test -e "$input"; then
+  echo "error: template file $input does not exist" 1>&2
+  exit 1
+fi
+
+set -a
+for e in ${env[@]}; do
+  . "$e"
+done
+set +a
+echo "converting $input into $output"
+envsubst < "$input" | yq 'explode(.)' > "$output"

@@ -1,0 +1,489 @@
+openapi: 3.0.0
+info:
+  title: BitMart Public API
+  version: "1.0"
+servers:
+  - url: https://api-cloud.bitmart.com
+paths:
+  /system/time:
+    get:
+      summary: Get system time
+      operationId: getSystemTime
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      server_time:
+                        type: integer
+                        description: Current system time (timestamp, accuracy in milliseconds)
+  /system/service:
+    get:
+      summary: Get system service status
+      operationId: getSystemServiceStatus
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      service:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            title:
+                              type: string
+                            service_type:
+                              type: string
+                            status:
+                              type: string
+                            start_time:
+                              type: integer
+                            end_time:
+                              type: integer
+  /spot/v1/currencies:
+    get:
+      summary: Get a list of all cryptocurrencies on the platform
+      operationId: getCurrencies
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      currencies:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            withdraw_enabled:
+                              type: boolean
+                            deposit_enabled:
+                              type: boolean
+  /spot/v1/symbols:
+    get:
+      summary: Get a list of all trading pairs on the platform
+      operationId: getTradingPairs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      symbols:
+                        type: array
+                        items:
+                          type: string
+  /spot/v1/symbols/details:
+    get:
+      summary: Get a detailed list of all trading pairs on the platform
+      operationId: getTradingPairDetails
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      symbols:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            symbol:
+                              type: string
+                            symbol_id:
+                              type: integer
+                            base_currency:
+                              type: string
+                            quote_currency:
+                              type: string
+                            quote_increment:
+                              type: string
+                            base_min_size:
+                              type: string
+                            price_min_precision:
+                              type: number
+                            price_max_precision:
+                              type: number
+                            expiration:
+                              type: string
+                            min_buy_amount:
+                              type: string
+                            min_sell_amount:
+                              type: string
+                            trade_status:
+                              type: string
+  /spot/quotation/v3/trades:
+    get:
+      summary: Get the latest trade records of the specified trading pair
+      operationId: getRecentTrades
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Trading pair (e.g. BMX_USDT)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Number of returned items, maximum is 50, default 50
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+                        description: Trading pair; Trade time (in milliseconds); Trade price; Trade number; Order Side
+  /spot/quotation/v3/tickers:
+    get:
+      summary: Get the quotations of all trading pairs
+      operationId: getTickerOfAllPairs
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+                        description: Trading pair; Latest price; 24-hour trade volume in base currency; 24-hour trade volume in quote currency; 24-hour open price; 24-hour highest price; 24-hour lowest price; 24-hour price change; top buy price; Size of top buy order; top sell price; Size of top sell order; Time of generation(in milliseconds)
+  /spot/quotation/v3/ticker:
+    get:
+      summary: Get Ticker of a Trading Pair
+      operationId: getTickerOfTradingPair
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Trading pair (e.g. BMX_USDT)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      symbol:
+                        type: string
+                      last:
+                        type: string
+                      v_24h:
+                        type: string
+                      qv_24h:
+                        type: string
+                      open_24h:
+                        type: string
+                      high_24h:
+                        type: string
+                      low_24h:
+                        type: string
+                      fluctuation:
+                        type: string
+                      bid_px:
+                        type: string
+                      bid_sz:
+                        type: string
+                      ask_px:
+                        type: string
+                      ask_sz:
+                        type: string
+                      ts:
+                        type: string
+  /spot/quotation/v3/lite-klines:
+    get:
+      summary: Get Latest K-Line
+      operationId: getLatestKLine
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Trading pair (e.g. BMX_USDT)
+          schema:
+            type: string
+        - name: before
+          in: query
+          required: false
+          description: "Query timestamp (unit: second), query the data before this time"
+          schema:
+            type: integer
+        - name: after
+          in: query
+          required: false
+          description: "Query timestamp (unit: second), query the data after this time"
+          schema:
+            type: integer
+        - name: step
+          in: query
+          required: false
+          description:
+            "k-line step, value [1, 3, 5, 15, 30, 45, 60, 120, 180, 240,
+            1440, 10080, 43200] unit: minute, default 1"
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          description: Return number, the maximum value is 200, default is 100
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+                        description: Create timestamp (in seconds);  Open price;  Highest price;  Lowest price;  Close price;  Trading volume, with a unit of currency; Trading volume, the value is the quantity in quote currency
+  /spot/quotation/v3/klines:
+    get:
+      summary: Get History K-Line
+      operationId: getHistoryKLine
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Trading pair (e.g. BMX_USDT)
+          schema:
+            type: string
+        - name: before
+          in: query
+          required: false
+          description: "Query timestamp (unit: second), query the data before this time"
+          schema:
+            type: integer
+        - name: after
+          in: query
+          required: false
+          description: "Query timestamp (unit: second), query the data after this time"
+          schema:
+            type: integer
+        - name: step
+          in: query
+          required: false
+          description:
+            "k-line step, value [1, 3, 5, 15, 30, 45, 60, 120, 180, 240,
+            1440, 10080, 43200] unit: minute, default 1"
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          description: Return number, the maximum value is 200, default is 100
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+                        description: Create timestamp (in seconds); Open price; Highest price; Lowest price; Close price; Trading volume, with a unit of currency; Trading volume, the value is the quantity in quote currency
+  /spot/quotation/v3/books:
+    get:
+      summary: Get Depth
+      operationId: getDepth
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Trading pair (e.g. BMX_USDT)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description:
+            Order book depth per side. Maximum 50, e.g. 50 bids + 50 asks.
+            Default returns to 35 depth data, e.g. 35 bids + 35 asks.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  trace:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      ts:
+                        type: string
+                        description: Create time(Timestamp in milliseconds)
+                      symbol:
+                        type: string
+                      asks:
+                        type: array
+                        items:
+                          type: array
+                          items:
+                            type: string
+                      bids:
+                        type: array
+                        items:
+                          type: array
+                          items:
+                            type: string
+components:
+  schemas:
+    OrderState:
+      type: string
+      enum:
+        - new
+        - partially_filled
+        - filled
+        - canceled
+        - partially_canceled
+    OrderSide:
+      type: string
+      enum:
+        - buy
+        - sell
+    OrderType:
+      type: string
+      enum:
+        - limit
+        - market
+        - limit_maker
+        - ioc
+    TradeRole:
+      type: string
+      enum:
+        - taker
+        - maker

@@ -1,0 +1,25 @@
+{
+  "plugins": [
+    "plugins/markdown",
+    "jsdoc-escape-at",
+    "jsdoc-ts-utils",
+    "better-docs/typescript"
+  ],
+  "typescript": {
+    "module": "ESNext",
+    "target": "ES2022"
+  },
+  "source": {
+    "include": [
+      "src"
+    ],
+    "includePattern": "^.+\\.ts(x)?$"
+  },
+  "sourceType": "module",
+  "opts": {
+    "destination": "../../doc",
+    "excludeExternals": true,
+    "readme": "README.md",
+    "package": "package.json"
+  }
+}

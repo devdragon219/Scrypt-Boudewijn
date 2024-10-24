@@ -1,0 +1,10 @@
+#!/bin/bash -e
+
+BRANCH=${1}
+if test -z "$BRANCH"; then
+    echo "Please specify a branch" 1>&2
+    exit 1
+fi
+
+git submodule foreach "git checkout '${BRANCH}' || git checkout -b '${BRANCH}' && git push --set-upstream origin '${BRANCH}'"
+git checkout "${BRANCH}" || git checkout -b "${BRANCH}" && git push --set-upstream origin "${BRANCH}"

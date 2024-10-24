@@ -1,0 +1,42 @@
+#!/bin/bash -e
+
+test -e .env || cp sample.env .env
+test -e infrastructure/prod/.env || cp infrastructure/prod/sample.env infrastructure/prod/.env
+
+for d in $(find frontends backends -mindepth 1 -maxdepth 1 -name node_modules -prune -o  -type d -print); do \
+    echo -n "*** $d: ";
+    cd $d;
+    (test -e .env -a ! -L .env) && (mv .env .env.bak && echo -n "moved file .env to .env.bak and ")
+    (test -e .env && echo "link exists") || (ln -s ../../.env . && echo "created link");
+    cd ../..;
+done
+
+sed -i 's/\(.*\)RANDOM_PASSWORD/echo "\1"$(pwgen 40 1)/e' .env
+for env in staging prod; do
+    sed -i 's/\(.*\)RANDOM_PASSWORD/echo "\1"$(pwgen 40 1)/e' infrastructure/${env}/.env
+done
+
+echo
+echo "automated setup of .env done"
+echo
+
+for env in . ./infrastructure/staging ./infrastructure/prod; do
+    ALL_REQ_VARS=$(sed -n 's/^\([_0-9A-Z]\+\)=.*/\1/p' ${env}/sample.env | sort | uniq)
+    ALL_ENV_VARS=$(sed -n 's/^\([_0-9A-Z]\+\)=.*/\1/p' ${env}/.env | sort | uniq)
+    DIFF=$(comm -3 <(echo "$ALL_REQ_VARS") <(echo "$ALL_ENV_VARS"))
+    MISSING=$(sed -n 's/^[_0-9A-Z]/&/p' <<<"$DIFF")
+    TOO_MUCH=$(sed -n 's/^\t//p' <<<"$DIFF")
+    if test -n "$TOO_MUCH"; then
+        echo
+        echo "in ${env}/.env, you may delete these variables:" $TOO_MUCH
+    fi
+    if test -n "$MISSING"; then
+        echo
+        echo "in ${env}/.env, you should add these variables:" $MISSING
+    fi
+    if test -n "$UNDEFINED_VARS"; then
+        echo
+        echo "in ${env}/.env, you need to manually set these variables:"
+        echo "$UNDEFINED_VARS"
+    fi
+done

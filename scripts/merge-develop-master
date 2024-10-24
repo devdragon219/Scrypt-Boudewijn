@@ -1,0 +1,7 @@
+#!/bin/bash -e
+
+BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
+echo "merging branch develop to branch master"
+
+git submodule foreach "git checkout develop && git pull && git checkout master && git pull && git merge develop && git push && git checkout ${BRANCH}"
+git checkout develop && git pull && git checkout master && git pull && git merge develop && git push && git checkout ${BRANCH}

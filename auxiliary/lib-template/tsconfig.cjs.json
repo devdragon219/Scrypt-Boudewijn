@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+  },
+  "include": [
+    "./src/**/*.ts"
+  ]
+}
